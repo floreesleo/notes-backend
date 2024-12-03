@@ -10,8 +10,6 @@ app.use(morgan("tiny"));
 app.use(express.json());
 app.use(express.static("dist"));
 
-console.log("Hello");
-
 let notes = [
   {
     id: 1,
@@ -80,6 +78,10 @@ app.post("/api/notes", (request, response) => {
   notes = notes.concat(note);
 
   response.json(note);
+});
+
+app.get("*", (req, res) => {
+  res.sendFile(__dirname + "/dist/index.html");
 });
 
 app.listen(PORT, () => {
