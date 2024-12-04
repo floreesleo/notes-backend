@@ -5,11 +5,6 @@ const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
-app.use(morgan("tiny"));
-app.use(express.json());
-app.use(express.static("dist"));
-
 let notes = [
   {
     id: 1,
@@ -27,6 +22,25 @@ let notes = [
     important: true,
   },
 ];
+
+const requestLogger = (request, response, next) => {
+  console.log("---");
+  console.log("Method: ", request.method);
+  console.log("Path: ", request.path);
+  console.log("Body: ", request.boyd);
+  console.log("---");
+  next();
+};
+
+const unknownEndpoind = (request, response) => {
+  response.status(404).send({ error: "unknown endpoint" });
+};
+
+app.use(cors());
+app.use(morgan("tiny"));
+app.use(express.json());
+app.use(requestLogger);
+app.use(express.static("dist"));
 
 app.get("/", (request, response) => {
   response.send("<h1>Home Page</h1>");
@@ -83,6 +97,8 @@ app.post("/api/notes", (request, response) => {
 app.get("*", (req, res) => {
   res.sendFile(__dirname + "/dist/index.html");
 });
+
+app.use(unknownEndpoind);
 
 app.listen(PORT, () => {
   console.log(`Express server is running on PORT: http://localhost:${PORT}`);
