@@ -2,26 +2,13 @@ const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
 
-const app = express();
-const PORT = process.env.PORT || 3001;
+require("dotenv").config();
 
-let notes = [
-  {
-    id: 1,
-    content: "HTML is easy",
-    important: true,
-  },
-  {
-    id: 2,
-    content: "Browser can execute only JavaScript",
-    important: false,
-  },
-  {
-    id: 3,
-    content: "GET and POST are the most important methods of HTTP protocol",
-    important: true,
-  },
-];
+const Note = require("./models/note");
+
+const app = express();
+
+let notes = [];
 
 const requestLogger = (request, response, next) => {
   console.log("---");
@@ -39,7 +26,7 @@ const unknownEndpoind = (request, response) => {
 app.use(cors());
 app.use(morgan("tiny"));
 app.use(express.json());
-app.use(requestLogger);
+// app.use(requestLogger);
 app.use(express.static("dist"));
 
 app.get("/", (request, response) => {
@@ -47,32 +34,26 @@ app.get("/", (request, response) => {
 });
 
 app.get("/api/notes", (request, response) => {
-  response.json(notes);
+  Note.find({})
+    .then((notes) => {
+      response.json(notes);
+    })
+    .catch((error) => response.json({ error: error }));
 });
 
 app.get("/api/notes/:id", (request, response) => {
-  const id = Number(request.params.id);
-  const note = notes.find((note) => note.id === id);
-
-  if (!note) {
-    response.status(404).send("<h1>Note Not Found</h1>").end();
-  }
-
-  response.json(note);
+  Note.findById(request.params.id)
+    .then((note) => response.json(note))
+    .catch((error) => response.status(404).json({ error: "Not Found" }));
 });
 
 app.delete("/api/notes/:id", (request, response) => {
   const id = Number(request.params.id);
 
   const newNotes = notes.filter((note) => note.id !== id);
-  // response.status(204).end();
+
   response.json(newNotes).status(204).end();
 });
-
-const generateId = () => {
-  const maxId = notes.length > 0 ? Math.max(...notes.map((n) => n.id)) : 0;
-  return maxId + 1;
-};
 
 app.post("/api/notes", (request, response) => {
   const body = request.body;
@@ -83,15 +64,15 @@ app.post("/api/notes", (request, response) => {
     });
   }
 
-  const note = {
+  const note = new Note({
     content: body.content,
-    important: Boolean(body.important) || false,
-    id: generateId(),
-  };
+    important: body.important || false,
+  });
 
-  notes = notes.concat(note);
-
-  response.json(note);
+  note
+    .save()
+    .then((savedNote) => response.json(savedNote))
+    .catch((error) => response.json({ error: error }));
 });
 
 app.get("*", (req, res) => {
@@ -100,6 +81,7 @@ app.get("*", (req, res) => {
 
 app.use(unknownEndpoind);
 
+const PORT = process.env.PORT;
 app.listen(PORT, () => {
-  console.log(`Express server is running on PORT: http://localhost:${PORT}`);
+  console.log("Express server is running on PORT: ", PORT);
 });
