@@ -1,12 +1,18 @@
 const express = require("express");
-const morgan = require("morgan");
 const cors = require("cors");
+// const morgan = require("morgan");
 
 require("dotenv").config();
 
 const Note = require("./models/note");
 
 const app = express();
+
+app.use(express.json());
+
+app.use(express.static("dist"));
+app.use(cors());
+// app.use(morgan("tiny"));
 
 const requestLogger = (request, response, next) => {
   console.log("---");
@@ -17,25 +23,7 @@ const requestLogger = (request, response, next) => {
   next();
 };
 
-const unknownEndpoint = (request, response) => {
-  response.status(404).send({ error: "unknown endpoint" });
-};
-
-const errorHandler = (error, request, response, next) => {
-  console.error(error.message);
-
-  if (error.name === "CastError") {
-    return response.status(400).send({ error: "malformatted id" });
-  }
-
-  next(error);
-};
-
-app.use(cors());
-app.use(morgan("tiny"));
-app.use(express.json());
-// app.use(requestLogger);
-app.use(express.static("dist"));
+app.use(requestLogger);
 
 // RUTAS
 app.get("/", (request, response) => {
@@ -98,7 +86,7 @@ app.post("/api/notes", (request, response) => {
 });
 
 //  UPDATE
-app.update("/api/notes/:id", (request, response, next) => {
+app.put("/api/notes/:id", (request, response, next) => {
   const { content, important } = request.body;
 
   const note = {
@@ -116,9 +104,23 @@ app.get("*", (req, res) => {
 });
 
 // Middleware para manejar endpoints desconocidos
+const unknownEndpoint = (request, response) => {
+  response.status(404).send({ error: "unknown endpoint" });
+};
+
 app.use(unknownEndpoint);
 
 // Middleware de manejo de errores
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message);
+
+  if (error.name === "CastError") {
+    return response.status(400).send({ error: "malformatted id" });
+  }
+
+  next(error);
+};
+
 app.use(errorHandler);
 
 const PORT = process.env.PORT;
