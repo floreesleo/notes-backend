@@ -8,19 +8,27 @@ const Note = require("./models/note");
 
 const app = express();
 
-let notes = [];
-
 const requestLogger = (request, response, next) => {
   console.log("---");
   console.log("Method: ", request.method);
   console.log("Path: ", request.path);
-  console.log("Body: ", request.boyd);
+  console.log("Body: ", request.body);
   console.log("---");
   next();
 };
 
-const unknownEndpoind = (request, response) => {
+const unknownEndpoint = (request, response) => {
   response.status(404).send({ error: "unknown endpoint" });
+};
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message);
+
+  if (error.name === "CastError") {
+    return response.status(400).send({ error: "malformatted id" });
+  }
+
+  next(error);
 };
 
 app.use(cors());
@@ -29,32 +37,46 @@ app.use(express.json());
 // app.use(requestLogger);
 app.use(express.static("dist"));
 
+// RUTAS
 app.get("/", (request, response) => {
   response.send("<h1>Home Page</h1>");
 });
 
+// GET ALL
 app.get("/api/notes", (request, response) => {
   Note.find({})
     .then((notes) => {
       response.json(notes);
     })
-    .catch((error) => response.json({ error: error }));
+    .catch((error) => {
+      console.error(error);
+      response.status(500).end();
+    });
 });
 
-app.get("/api/notes/:id", (request, response) => {
+// GET ONE
+app.get("/api/notes/:id", (request, response, next) => {
   Note.findById(request.params.id)
-    .then((note) => response.json(note))
-    .catch((error) => response.status(404).json({ error: "Not Found" }));
+    .then((note) => {
+      if (note) {
+        response.json(note);
+      } else {
+        response.status(404).end();
+      }
+    })
+    .catch((error) => next(error));
 });
 
-app.delete("/api/notes/:id", (request, response) => {
-  const id = Number(request.params.id);
-
-  const newNotes = notes.filter((note) => note.id !== id);
-
-  response.json(newNotes).status(204).end();
+// DELETE
+app.delete("/api/notes/:id", (request, response, next) => {
+  Note.findByIdAndDelete(request.params.id)
+    .then((result) => {
+      response.status(204).end();
+    })
+    .catch((error) => next(error));
 });
 
+// POST
 app.post("/api/notes", (request, response) => {
   const body = request.body;
 
@@ -75,11 +97,29 @@ app.post("/api/notes", (request, response) => {
     .catch((error) => response.json({ error: error }));
 });
 
+//  UPDATE
+app.update("/api/notes/:id", (request, response, next) => {
+  const { content, important } = request.body;
+
+  const note = {
+    content: content,
+    important: important,
+  };
+
+  Note.findByIdAndUpdate(request.params.id, note, { new: true })
+    .then((updatedNote) => response.json(updatedNote))
+    .catch((error) => next(error));
+});
+
 app.get("*", (req, res) => {
   res.sendFile(__dirname + "/dist/index.html");
 });
 
-app.use(unknownEndpoind);
+// Middleware para manejar endpoints desconocidos
+app.use(unknownEndpoint);
+
+// Middleware de manejo de errores
+app.use(errorHandler);
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => {
